@@ -1,318 +1,126 @@
-// const Vector2 = require('./Vector2.js');
 
-class Physics {
+let players = { };
+let dT = 0;
+let lastTime = new Date().getTime();
 
-  constructor(freq) {
-    this.frequency = freq;
+  // simulates movement and physics
+const simulate = () => {
+    // update deltaTime
+  const time = new Date();
+  const curTime = time.getTime();
+  dT = (curTime - lastTime) / 1000;
+  lastTime = curTime;
 
-    const time = new Date();
+  // object to store the data we'll send back to the server's main process
+  const sendData = { };
 
-    this.lastTime = time.getTime();
-    this.dT = 0;
+    // get keys
+  const dataKeys = Object.keys(players);
+
+    // calculate physics
+  for (let i = 0; i < dataKeys.length; i++) {
+    const user = players[dataKeys[i]];
+    user.acceleration = { x: 0, y: 0 };
+    user.forces = { x: 0, y: 0 };
+    user.position.lastUpdate = curTime;
+
+
+    // * FORCES * //
+
+      // add forces
+    if (user.movement.up) {
+      user.forces.y -= 1000;
+    }
+    if (user.movement.down) {
+      user.forces.y += 1000;
+    }
+    if (user.movement.left) {
+      user.forces.x -= 1000;
+    }
+    if (user.movement.right) {
+      user.forces.x += 1000;
+    }
+
+      // add friction
+        // if the velocity is small enough, flatten it
+    if (Math.abs(user.velocity.x) < 0.1) {
+      user.velocity.x = 0;
+    } else {
+      user.forces.x -= user.velocity.x * user.friction;
+    }
+
+    if (Math.abs(user.velocity.y) < 0.1) {
+      user.velocity.y = 0;
+    } else {
+      user.forces.y -= user.velocity.y * user.friction;
+    }
+
+
+    // * ACCELERATION * //
+
+      // calculate acceleration
+    user.acceleration.x = user.forces.x / user.mass;
+    user.acceleration.y = user.forces.y / user.mass;
+
+
+    // * VELOCITY * //
+
+      // calculate velocity
+    user.velocity.x += user.acceleration.x * dT;
+    user.velocity.y += user.acceleration.y * dT;
+
+
+    // * POSITION * //
+
+      // update positions
+    user.position.c_x = user.position.b_x;
+    user.position.c_y = user.position.b_y;
+    user.position.b_x = user.position.current.x;
+    user.position.b_y = user.position.current.y;
+    user.position.current.x += user.velocity.x * dT;
+    user.position.current.y += user.velocity.y * dT;
+
+    // add the player's position data to the data to send back
+    sendData[user.hash] = user.position;
   }
 
+  process.send('message', { type: 'playerUpdate', data: sendData });
+};
 
-  // takes the user data and ids
-    // simulates the physics of them
-      // includes collisions, movements, etc
-    // changes the values on the server for each
-  simulate(users, data) {
-      // update deltaTime
-    const time = new Date();
-    const curTime = time.getTime();
-    this.dT = (curTime - this.lastTime) / 1000;
-    this.lastTime = curTime;
-
-      // parameters for abilities (in seconds)
-    const timeToSink = 1.5;
-    const timeSunken = 1.5;
-    const sinkRefresh = 5;
-    const sinkWeight = 10;
-    const boostAmt = 10;
-    const boostTime = 0.5;
-    const boostRefresh = 5;
-    const boostWeight = 2;
+setInterval(() => {
+  simulate();
+}, 16);
 
 
-      // get keys
-    const dataKeys = Object.keys(data);
-      // reset forces and acceleration
-    for (let i = 0; i < dataKeys.length; i++) {
-      const user = data[dataKeys[i]];
-      user.gameData.physics.forces = { x: 0, y: 0 };
-      user.gameData.physics.acceleration = { x: 0, y: 0 };
-      user.gameData.colliding = false;
-
-        // handle boosting
-          // user currently boosting
-      if (user.serverData.boostTimer > 0) {
-        user.serverData.boostTimer -= this.dT;
-
-        if (user.serverData.boostTimer <= 0) {
-          user.gameData.boosting = false;
-          user.gameData.physics.mass = 1;
-          user.serverData.boostTimer = 0;
-          user.serverData.boostRefreshTimer = boostRefresh;
-        }
-      } else if (user.serverData.boostRefreshTimer > 0) {
-          // user refreshing their boost
-        user.serverData.boostRefreshTimer -= this.dT;
-
-        if (user.serverData.boostRefreshTimer <= 0) {
-          user.serverData.boostRefreshTimer = 0;
-        }
-      } else if (user.clientData.movement.boost &&
-                !user.gameData.sinking) {
-          // user getting to boost again
-        user.serverData.boostTimer = boostTime;
-        user.gameData.boosting = true;
-        user.gameData.physics.mass = boostWeight;
-      }
-
-        // handle sinking
-          // user currently using the 'sink' ability
-      if (user.gameData.sinking) {
-          // user currently sinking down
-        if (user.gameData.sinkProgress < timeToSink &&
-            user.serverData.sinkTimer === 0 &&
-            user.serverData.sinkRefreshTimer === 0) {
-          user.gameData.sinkProgress += this.dT;
-          user.gameData.physics.mass = 1 + (user.gameData.sinkProgress * sinkWeight);
-
-          if (user.gameData.sinkProgress >= timeToSink) {
-            user.gameData.sinkProgress = timeToSink;
-            user.gameData.physics.mass = 1 + sinkWeight;
-            user.gameData.sunken = true;
-            user.serverData.sinkTimer = timeSunken;
-          }
-        } else if (user.serverData.sinkTimer > 0) {
-            // user currently sunken
-          user.serverData.sinkTimer -= this.dT;
-
-          if (user.serverData.sinkTimer <= 0) {
-            user.serverData.sinkTimer = 0;
-            user.serverData.sinkRefreshTimer = sinkRefresh;
-            user.gameData.sunken = false;
-          }
-        } else if (user.serverData.sinkRefreshTimer > 0) {
-            // user not sunken anymore
-          if (user.gameData.sinkProgress > 0) {
-            user.gameData.sinkProgress -= this.dT;
-            user.gameData.physics.mass = 1 + (user.gameData.sinkProgress * boostWeight);
-
-            if (user.gameData.sinkProgress <= 0) {
-              user.gameData.sinkProgress = 0;
-              user.gameData.physics.mass = 1;
-            }
-          }
-
-          user.serverData.sinkRefreshTimer -= this.dT;
-
-          if (user.serverData.sinkRefreshTimer <= 0) {
-            user.serverData.sinkRefreshTimer = 0;
-            user.gameData.sinking = false;
-          }
-        }
-      } else if (user.clientData.movement.sink &&
-                !user.gameData.boosting) {
-          // user activates ability
-        user.gameData.sinking = true;
-      }
+process.on('message', (m) => {
+  switch (m.type) {
+    case 'playerList': {
+      players = m.data;
+      break;
     }
-      // handle movement updating
-    for (let i = 0; i < dataKeys.length; i++) {
-      const user = data[dataKeys[i]];
-      const gameData = user.gameData;
-
-
-        // check if the user is sunken
-          // skip physics if it is
-      if (!gameData.sunken) {
-          // adjust lastTime updated
-        gameData.lastUpdate = curTime;
-
-
-        let boostMod = 1;
-          // check for boosting
-        if (gameData.boosting) {
-          boostMod = boostAmt;
-        }
-
-          // add forces
-        if (user.clientData.movement.up) {
-          gameData.physics.forces.y -= 1000 * boostMod;
-        }
-        if (user.clientData.movement.down) {
-          gameData.physics.forces.y += 1000 * boostMod;
-        }
-        if (user.clientData.movement.left) {
-          gameData.physics.forces.x -= 1000 * boostMod;
-        }
-        if (user.clientData.movement.right) {
-          gameData.physics.forces.x += 1000 * boostMod;
-        }
-
-          // add friction
-            // if the velocity is small enough, flatten it
-        if (Math.abs(gameData.physics.velocity.x) < 0.1) {
-          gameData.physics.velocity.x = 0;
-        } else {
-          gameData.physics.forces.x -= gameData.physics.velocity.x * gameData.physics.friction;
-        }
-
-        if (Math.abs(gameData.physics.velocity.y) < 0.1) {
-          gameData.physics.velocity.y = 0;
-        } else {
-          gameData.physics.forces.y -= gameData.physics.velocity.y * gameData.physics.friction;
-        }
-
-          // check collisions and add calculate physics
-        for (let j = i + 1; j < dataKeys.length; j++) {
-          const other = data[dataKeys[j]].gameData;
-
-            // check to see if the other user is sunken
-              // skip them if they are
-          if (!other.sunken) {
-            let dx = (gameData.a_x - other.a_x);
-            dx *= dx;
-            let dy = (gameData.a_y - other.a_y);
-            dy *= dy;
-            const dist = Math.sqrt(dx + dy);
-
-            if (dist < 100) {
-              gameData.colliding = true;
-              other.colliding = true;
-
-                // objects to use for collision calculation
-              const obj1 = { };
-              const obj2 = { };
-
-                // calculate combined mass
-              const combMass = gameData.physics.mass + other.physics.mass;
-
-                // calculate mass scalars
-              obj1.massScalar = (2 * other.physics.mass) / combMass;
-              obj2.massScalar = (2 * gameData.physics.mass) / combMass;
-
-                // calculate velocity differences
-              obj1.velDiff = {
-                x: gameData.physics.velocity.x - other.physics.velocity.x,
-                y: gameData.physics.velocity.y - other.physics.velocity.y,
-              };
-              obj2.velDiff = {
-                x: other.physics.velocity.x - gameData.physics.velocity.x,
-                y: other.physics.velocity.y - gameData.physics.velocity.y,
-              };
-
-                // calculate position differences
-              obj1.posDiff = {
-                x: gameData.a_x - other.a_x,
-                y: gameData.a_y - other.a_y,
-              };
-              obj2.posDiff = {
-                x: other.a_x - gameData.a_x,
-                y: other.a_y - gameData.a_y,
-              };
-
-                // calculate the dot products
-              obj1.dot = ((obj1.velDiff.x * obj1.posDiff.x) + (obj1.velDiff.y * obj1.posDiff.y));
-              obj2.dot = ((obj2.velDiff.x * obj2.posDiff.x) + (obj2.velDiff.y * obj2.posDiff.y));
-
-                // calculate sqrMag
-              dx = (obj1.posDiff.x * obj1.posDiff.x);
-              dy = (obj1.posDiff.y * obj1.posDiff.y);
-              obj1.sqrMag = dx + dy;
-              dx = (obj2.posDiff.x * obj2.posDiff.x);
-              dy = (obj2.posDiff.y * obj2.posDiff.y);
-              obj2.sqrMag = dx + dy;
-
-                // calculate final scaler
-              obj1.scalar = (obj1.massScalar * obj1.dot) / obj1.sqrMag;
-              obj2.scalar = (obj2.massScalar * obj2.dot) / obj2.sqrMag;
-
-                // calculate changed velocities
-                  // I add a 10% increase fudge factor to make sure
-                  //  the objects don't stick inside each other
-              obj1.newVel = {
-                x: gameData.physics.velocity.x - (obj1.scalar * obj1.posDiff.x * 1.1),
-                y: gameData.physics.velocity.y - (obj1.scalar * obj1.posDiff.y * 1.1),
-              };
-              obj2.newVel = {
-                x: other.physics.velocity.x - (obj2.scalar * obj2.posDiff.x * 1.1),
-                y: other.physics.velocity.y - (obj2.scalar * obj2.posDiff.y * 1.1),
-              };
-
-                // calculate directions
-              obj1.dir = {
-                x: (obj1.newVel.x < 0 ? -1 : 1),
-                y: (obj1.newVel.y < 0 ? -1 : 1),
-              };
-              obj2.dir = {
-                x: (obj2.newVel.x < 0 ? -1 : 1),
-                y: (obj2.newVel.y < 0 ? -1 : 1),
-              };
-
-                // calculate forces required to change velocities
-              let dvx = (obj1.newVel.x * obj1.newVel.x);
-              let dvy = (obj1.newVel.y * obj1.newVel.y);
-              obj1.df = {
-                x: 0.5 * gameData.physics.mass * dvx * obj1.dir.x,
-                y: 0.5 * gameData.physics.mass * dvy * obj1.dir.y,
-              };
-              dvx = (obj2.newVel.x * obj2.newVel.x);
-              dvy = (obj2.newVel.y * obj2.newVel.y);
-              obj2.df = {
-                x: 0.5 * other.physics.mass * dvx * obj2.dir.x,
-                y: 0.5 * other.physics.mass * dvy * obj2.dir.y,
-              };
-
-                // add forces
-             // gameData.physics.forces.x -= obj1.df.x;
-             // gameData.physics.forces.y -= obj1.df.y;
-             //
-             // other.physics.forces.x -= obj2.df.x;
-             // other.physics.forces.y -= obj2.df.y;
-
-              gameData.physics.velocity.x = obj1.newVel.x;
-              gameData.physics.velocity.y = obj1.newVel.y;
-
-              other.physics.velocity.x = obj2.newVel.x;
-              other.physics.velocity.y = obj2.newVel.y;
-            }
-          }
-        }
-
-          // calculate wall bounces
-        if (gameData.a_x >= 800 || gameData.a_x <= 0) {
-          gameData.physics.velocity.x *= -1;
-        }
-        if (gameData.a_y >= 800 || gameData.a_y <= 0) {
-          gameData.physics.velocity.y *= -1;
-        }
-
-          // calculate acceleration
-        gameData.physics.acceleration.x = gameData.physics.forces.x / gameData.physics.mass;
-        gameData.physics.acceleration.y = gameData.physics.forces.y / gameData.physics.mass;
-
-          // calculate velocity
-        gameData.physics.velocity.x += gameData.physics.acceleration.x * this.dT;
-        gameData.physics.velocity.y += gameData.physics.acceleration.y * this.dT;
-
-          // calculate the slowing from sinking
-        gameData.physics.velocity.x *= Math.max(0, (1 - (gameData.sinkProgress * 0.5)));
-        gameData.physics.velocity.y *= Math.max(0, (1 - (gameData.sinkProgress * 0.5)));
-
-          // update positions
-        gameData.c_x = gameData.b_x;
-        gameData.c_y = gameData.b_y;
-        gameData.b_x = gameData.a_x;
-        gameData.b_y = gameData.a_y;
-        gameData.a_x += gameData.physics.velocity.x * this.dT;
-        gameData.a_y += gameData.physics.velocity.y * this.dT;
+    case 'playerMoved': {
+      if (players[m.data.hash]) {
+        players[m.data.hash].movement = m.data.movement;
       }
+
+      break;
+    }
+    case 'playerAdded': {
+      const user = m.data;
+      players[user.hash] = user;
+
+      break;
+    }
+    case 'playerRemoved': {
+      const user = m.data;
+      if (players[user.hash]) {
+        delete players[user.hash];
+      }
+
+      break;
+    }
+    default: {
+      console.log('Physics process: Error, can\'t recognize message type');
     }
   }
-
-}
-
-module.exports = Physics;
+});

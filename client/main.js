@@ -28,22 +28,7 @@ app.main = {
   creatures: undefined,
   
   update: (data) => {
-    if (data.info.id === this.id) {
-      return;
-    }
-
-    if (this.users[data.info.id].gameData.lastUpdate >= data.gameData.lastUpdate) {
-      return;
-    }
-
-    const user = this.users[data.info.id];
-    user.gameData.a_x = data.gameData.a_x;
-    user.gameData.a_y = data.gameData.a_y;
-    user.gameData.b_x = data.gameData.b_x;
-    user.gameData.b_y = data.gameData.b_y;
-    user.gameData.c_x = data.gameData.c_x;
-    user.gameData.c_y = data.gameData.c_y;
-    user.clientData.alpha = 0.05;
+    
   },
   
   updatePosition: () => {
@@ -56,30 +41,12 @@ app.main = {
   },
 
   redraw: (time) => {
-    updatePosition();
-
-    ctx.clearRect(0, 0, 500, 500);
-
-    const keys = Object.keys(users);
-
-    for (let i = 0; i < keys.length; i++) {
-      const user = users[keys[i]];
-
-      if (user.clientData.alpha < 1) {
-        user.clientData.alpha += 0.05;
-      }
-
-      ctx.fillStyle = user.info.color;
-
-      //user.clientData.x = lerp3(user.gameData.c_x, user.gameData.b_x, user.gameData.a_x, user.clientData.alpha);
-      //user.clientData.y = lerp3(user.gameData.c_y, user.gameData.b_y, user.gameData.a_y, user.clientData.alpha);
-
-      user.clientData.x = lerp2(user.gameData.c_x, user.gameData.a_x, user.clientData.alpha);
-      user.clientData.y = lerp2(user.gameData.c_y, user.gameData.a_y, user.clientData.alpha);
-      ctx.beginPath();
-      ctx.arc(user.clientData.x, user.clientData.y, 50, 0, Math.PI * 2, false);
-      ctx.closePath();
-      ctx.fill();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    let keys = Object.Keys(creatures);
+    
+    for (var i = 0; i < keys.length; i++) {
+      
     }
 
     requestAnimationFrame(redraw.bind(this));

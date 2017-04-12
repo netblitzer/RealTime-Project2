@@ -1,12 +1,9 @@
 const http = require('http');
-const fs = require('fs');
+const path = require('path');
+const express = require('express');
 const socketio = require('socket.io');
 
-const utils = require('./utils.js');
-const Room = require('./Room.js');
-// const Vector2 = require('./Vector2.js');
-
-const time = new Date();
+const main = require('./main.js');
 
 const PORT = process.env.PORT || process.env.NODE_PORT || 3000;
 
@@ -21,6 +18,8 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = socketio(server);
 
+main.setupMain(io);
+
 server.listen(PORT, (err) => {
   if (err) {
     throw err;
@@ -28,6 +27,7 @@ server.listen(PORT, (err) => {
   console.log(`Listening on port ${PORT}`);
 });
 
+/*
 const users = { };
 
 // * Input structure * //
@@ -288,3 +288,4 @@ io.sockets.on('connection', (socket) => {
 
 
 console.log('Websocket server started.');
+*/

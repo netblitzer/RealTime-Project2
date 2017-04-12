@@ -1,5 +1,5 @@
 {
-  "name": "Ocean Life",
+  "name": "OceanLife",
   "version": "0.0.0",
   "description": "A multiplayer ocean simulation",
   "main": "./server/app.js",

@@ -1,178 +1,231 @@
 "use strict";
 
-var directions = {
-  DOWNLEFT: 0,
-  DOWN: 1,
-  DOWNRIGHT: 2,
-  LEFT: 3,
-  UPLEFT: 4,
-  RIGHT: 5,
-  UPRIGHT: 6,
-  UP: 7
-};
+var app = app || {};
 
-var spriteSizes = {
-  WIDTH: 61,
-  HEIGHT: 121
-};
+app.main = {
+  // canvas drawing elements
+  offCanvas: undefined,
+  offCtx: undefined,
+  canvas: undefined,
+  ctx: undefined,
 
-var lerp = function lerp(v0, v1, alpha) {
-  return (1 - alpha) * v0 + alpha * v1;
-};
+  // game data
+  gamestate: 'ingame',
 
-var redraw = function redraw(time) {
+  // movement object for player
+  movement: {
+    down: false,
+    up: false,
+    right: false,
+    left: false,
+    space: false
+  },
 
-  socket.emit('movementUpdate', squares[hash].movement);
+  // connection information
+  socket: undefined,
+  id: undefined,
+  users: undefined,
+  creatures: undefined,
 
-  ctx.clearRect(0, 0, 500, 500);
+  update: function update(data) {},
 
-  var keys = Object.keys(squares);
+  updatePosition: function updatePosition() {},
 
-  for (var i = 0; i < keys.length; i++) {
+  lerp3: function lerp3(v0, v1, v2, alpha) {
+    return (1 - alpha) * ((1 - alpha) * v0 + alpha * v1) + ((1 - alpha) * v1 + v2 * alpha) * alpha;
+  },
 
-    var square = squares[keys[i]];
-
-    //if alpha less than 1, increase it by 0.01
-    if (square.alpha < 1) square.alpha += 0.05;
-
-    if (square.hash === hash) {
-      ctx.filter = "none";
-    } else {
-      ctx.filter = "hue-rotate(40deg)";
+  redraw: function (_redraw) {
+    function redraw(_x) {
+      return _redraw.apply(this, arguments);
     }
 
-    square.x = lerp(square.prevX, square.destX, square.alpha);
-    square.y = lerp(square.prevY, square.destY, square.alpha);
+    redraw.toString = function () {
+      return _redraw.toString();
+    };
 
-    //console.log(square.movement);
+    return redraw;
+  }(function (time) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // if we are mid animation or moving in any direction
-    if (square.frame > 0 || square.moveUp || square.moveDown || square.moveRight || square.moveLeft) {
-      square.frameCount++;
+    var keys = Object.Keys(creatures);
 
-      if (square.frameCount % 8 === 0) {
-        if (square.frame < 7) {
-          square.frame++;
-        } else {
-          square.frame = 0;
-        }
-      }
-    }
+    for (var i = 0; i < keys.length; i++) {}
 
-    ctx.drawImage(walkImage, spriteSizes.WIDTH * square.frame, spriteSizes.HEIGHT * square.direction, spriteSizes.WIDTH, spriteSizes.HEIGHT, square.x, square.y, spriteSizes.WIDTH, spriteSizes.HEIGHT);
+    requestAnimationFrame(redraw.bind(undefined));
+  }),
 
-    ctx.strokeRect(square.x, square.y, spriteSizes.WIDTH, spriteSizes.HEIGHT);
+  init: function init() {
+    undefined.canvas = document.querySelector("#canvas");
+    undefined.ctx = canvas.getContext("2d");
+
+    undefined.socket = io.connect();
+
+    undefined.socket.on('joined', function (data) {
+      return app.connection.joined();
+    });
+    undefined.socket.on('joinedCreatures', function (data) {
+      return app.connection.joinedCreatures();
+    });
+    undefined.socket.on('joinedPlayers', function (data) {
+      return app.connection.joinedPlayers();
+    });
+
+    undefined.socket.on('updateCreatures', function (data) {
+      return app.connection.updateCreatures();
+    });
+    undefined.socket.on('updatePlayers', function (data) {
+      return app.connection.updatePlayers();
+    });
+
+    undefined.socket.on('addPlayer', function (data) {
+      return app.connection.addPlayer();
+    });
+    undefined.socket.on('addCreatures', function (data) {
+      return app.connection.addCreatures();
+    });
+
+    undefined.socket.on('removePlayer', function (data) {
+      return app.connection.removePlayer();
+    });
+    undefined.socket.on('removeCreatures', function (data) {
+      return app.connection.removeCreatures();
+    });
+
+    document.body.addEventListener('keydown', function (e) {
+      return app.utils.keyDownHanlder();
+    });
+    document.body.addEventListener('keyup', function (e) {
+      return app.utils.keyUpHandler();
+    });
   }
 
-  animationFrame = requestAnimationFrame(redraw);
-};
-'use strict';
-
-var canvas = void 0;
-var ctx = void 0;
-var walkImage = void 0;
-var slashImage = void 0;
-//our websocket connection
-var socket = void 0;
-var hash = void 0;
-var animationFrame = void 0;
-
-var squares = {};
-
-var keyDownHandler = function keyDownHandler(e) {
-  var keyPressed = e.which;
-  var square = squares[hash];
-
-  // A OR LEFT
-  if (keyPressed === 65 || keyPressed === 37) {
-    square.movement.left = true;
-  }
-  // D OR RIGHT
-  else if (keyPressed === 68 || keyPressed === 39) {
-      square.movement.right = true;
-    }
-    // SPACE
-    else if (keyPressed === 32) {
-        square.movement.space = true;
-      }
 };
 
-var keyUpHandler = function keyUpHandler(e) {
-  var keyPressed = e.which;
-  var square = squares[hash];
-
-  // A OR LEFT
-  if (keyPressed === 65 || keyPressed === 37) {
-    square.movement.left = false;
-  }
-  // D OR RIGHT
-  else if (keyPressed === 68 || keyPressed === 39) {
-      square.movement.right = false;
-    }
-    // SPACE
-    else if (keyPressed === 32) {
-        square.movement.space = false;
-      }
-};
-
-var init = function init() {
-  walkImage = document.querySelector('#walk');
-  slashImage = document.querySelector('#slash');
-
-  canvas = document.querySelector('#canvas');
-  ctx = canvas.getContext('2d');
-
-  socket = io.connect();
-
-  socket.on('joined', setUser);
-  socket.on('updatedMovement', update);
-  socket.on('left', removeUser);
-
-  document.body.addEventListener('keydown', keyDownHandler);
-  document.body.addEventListener('keyup', keyUpHandler);
-};
-
-window.onload = init;
+(window.onload = function () {
+  app.main.init();
+  app.utils.fixScreenSize();
+})();
 "use strict";
 
-var update = function update(data) {
-  var keys = Object.keys(data);
+var app = app || {};
 
-  for (var i = 0; i < keys.length; i++) {
+app.utils = {
+  keyDownHandler: function keyDownHandler(e) {
+    var keyPressed = e.which;
 
-    var sq = data[keys[i]];
-
-    if (!squares[sq.hash]) {
-      squares[sq.hash] = sq;
-      return;
+    // W OR UP
+    if (keyPressed === 87 || keyPressed === 38) {
+      undefined.movement.up = true;
     }
+    // A OR LEFT
+    else if (keyPressed === 65 || keyPressed === 37) {
+        undefined.movement.left = true;
+      }
+      // S OR DOWN
+      else if (keyPressed === 83 || keyPressed === 40) {
+          undefined.movement.down = true;
+        }
+        // D OR RIGHT
+        else if (keyPressed === 68 || keyPressed === 39) {
+            undefined.movement.right = true;
+          }
+          // SPACE
+          else if (keyPressed === 32) {
+              undefined.movement.space = true;
+            }
 
-    if (squares[sq.hash].lastUpdate >= sq.lastUpdate) {
-      console.dir(squares[sq.hash].lastUpdate);
-      //console.dir(sq.lastUpdate);
-      return;
+    e.preventDefault();
+  },
+
+  keyUpHandler: function keyUpHandler(e) {
+    var keyPressed = e.which;
+
+    // W OR UP
+    if (keyPressed === 87 || keyPressed === 38) {
+      undefined.movement.up = false;
     }
+    // A OR LEFT
+    else if (keyPressed === 65 || keyPressed === 37) {
+        undefined.movement.left = false;
+      }
+      // S OR DOWN
+      else if (keyPressed === 83 || keyPressed === 40) {
+          undefined.movement.down = false;
+        }
+        // D OR RIGHT
+        else if (keyPressed === 68 || keyPressed === 39) {
+            undefined.movement.right = false;
+          }
+          // SPACE
+          else if (keyPressed === 32) {
+              undefined.movement.space = false;
+            }
 
-    var square = squares[sq.hash];
-    square.prevX = sq.prevX;
-    square.prevY = sq.prevY;
-    square.destX = sq.destX;
-    square.destY = sq.destY;
+    e.preventDefault();
+  },
 
-    //square.movement = sq.movement;
+  fixScreenSize: function fixScreenSize() {
+    var canvas = document.querySelector('#mainCanvas');
 
-    square.alpha = 0.05;
+    canvas.width = document.querySelector('body').innerWidth;
+    canvas.height = document.querySelector('body').innerHeight;
   }
 };
+"use strict";
 
-var removeUser = function removeUser(data) {
-  if (squares[data.hash]) {
-    delete squares[data.hash];
-  }
-};
+var app = app || {};
 
-var setUser = function setUser(data) {
-  hash = data.hash;
-  squares[hash] = data;
-  requestAnimationFrame(redraw);
+app.connection = {
+
+  // handler to load level and the connected player
+  // does not load other players or creature information
+  joined: function joined(data) {
+    if (data === undefined || data.user === undefined) return;
+
+    // set the user
+    undefined.id = data.id;
+    undefined.users[undefined.id] = data.user;
+  },
+
+  // handler to load creatures in
+  joinedCreatures: function joinedCreatures(data) {
+    if (data === undefined || data.creatures === undefined) return;
+
+    undefined.creatures = data.creatures;
+  },
+
+  // handler to load other players in
+  joinedPlayers: function joinedPlayers(data) {},
+
+  addPlayer: function addPlayer(data) {
+    if (data === undefined) return;
+
+    if (!undefined.users[data.id]) {
+      undefined.users[data.id] = data.user;
+    }
+  },
+
+  addCreatures: function addCreatures(data) {},
+
+  removePlayer: function removePlayer(data) {
+    if (undefined.users[data.id]) {
+      delete undefined.users[data.id];
+    }
+  },
+
+  removeCreatures: function removeCreatures(data) {},
+
+  updateCreatures: function updateCreatures(data) {
+    if (data === undefined || data.creatures === undefined) return;
+
+    var keys = Object.keys(data.creatures);
+    for (var i = 0; i < keys.length; i++) {
+      var creature = data.creatures[keys[i]];
+      undefined.creatures[creature.ID].physics = creature.physics;
+    }
+  },
+
+  updatePlayers: function updatePlayers(data) {}
+
 };
