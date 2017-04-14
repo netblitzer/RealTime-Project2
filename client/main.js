@@ -90,6 +90,15 @@ function init () {
       gamestate = 'loadTransitionOUT';
     }
   };
+  
+  document.fonts.onloadingdone = () => {
+    loaded.font = true;
+    
+    if (loaded.airplane && loaded.balloon) {
+      loaded.ready = true;
+      gamestate = 'loadTransitionOUT';
+    }
+  }
 };
 
 window.onload = init;

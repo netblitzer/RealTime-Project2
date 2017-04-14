@@ -127,6 +127,10 @@ const redraw = function () {
       load.progress -= Math.PI;
     }
     
+    if (loaded.ready) {
+      gamestate = 'loadTransitionOUT';
+    }
+    
   }
   else if (gamestate === 'loadTransitionOUT') {
     

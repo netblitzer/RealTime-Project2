@@ -91,6 +91,15 @@ function init() {
       gamestate = 'loadTransitionOUT';
     }
   };
+
+  document.fonts.onloadingdone = function () {
+    loaded.font = true;
+
+    if (loaded.airplane && loaded.balloon) {
+      loaded.ready = true;
+      gamestate = 'loadTransitionOUT';
+    }
+  };
 };
 
 window.onload = init;
@@ -396,6 +405,10 @@ var redraw = function redraw() {
     load.progress += dT * 5;
     if (load.progress > Math.PI) {
       load.progress -= Math.PI;
+    }
+
+    if (loaded.ready) {
+      gamestate = 'loadTransitionOUT';
     }
   } else if (gamestate === 'loadTransitionOUT') {
 
