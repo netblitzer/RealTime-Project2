@@ -1,13 +1,13 @@
 {
-  "name": "OceanLife",
+  "name": "PaperBalloons",
   "version": "0.0.0",
-  "description": "A multiplayer ocean simulation",
+  "description": "A multiplayer experinece with paper airplanes and balloons.",
   "main": "./server/app.js",
   "scripts": {
     "build": "babel ./client --out-file ./hosted/compiled.js",
     "watch": "babel --watch ./client --out-file ./hosted/compiled.js",
-    "nodemon": "nodemon --watch ./server ./server/app.js",
-    "start": "node ./server/app.js",
+    "nodemon": "nodemon --watch ./server ./server/server.js",
+    "start": "node ./server/server.js",
     "pretest": "eslint ./server --fix",
     "test": "echo \"Tests complete\""
   },

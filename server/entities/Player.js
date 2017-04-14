@@ -9,19 +9,25 @@ class Player {
     this.pos = _startPos;
     this.maxSpeed = _maxSpeed;
     this.maxForce = _maxForce;
-    this.friction = 0.5;
+    this.friction = 1;
     this.mass = _mass;
 
-    this.position = {
+    this.position = {       // all client data to be sent back
       current: {
-        x: 0,
-        y: 0,
+        x: _startPos.x,
+        y: _startPos.y,
       },
       b_x: 0,
       b_y: 0,
       c_x: 0,
       c_y: 0,
       lastUpdate: 0,
+      direction: {
+        x: 0,
+        y: 0,
+      },
+      colliding: false,
+      radius: 4000,
     };
 
     this.movement = {

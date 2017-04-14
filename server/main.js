@@ -2,6 +2,7 @@ const xxh = require('xxhashjs');
 const child = require('child_process');
 const Player = require('./entities/Player.js');
 const Creature = require('./entities/Creature.js');
+const Message = require('./Message.js');
 
 let io;
 
@@ -41,6 +42,9 @@ physics.on('message', (m) => {
         }
       }
 
+      // update the flocking process
+      flocking.send(new Message('playerUpdate', m.data));
+
       break;
     }
     default: {
@@ -66,7 +70,7 @@ flocking.on('exit', (code, signal) => {
 flocking.on('message', (m) => {
   switch (m.type) {
     case 'creatureUpdate': {
-      io.sockets.in('main').emit('updatePlayers', m.data);
+      io.sockets.in('main').emit('updateCreatures', m.data);
 
       // update the server's information so we can send things to new players
       const keys = Object.keys(m.data);
@@ -85,29 +89,108 @@ flocking.on('message', (m) => {
 });
 
 
+  // * MAIN FUNCTIONALITY * //
+
+// main server function
 const setupMain = (ioServer) => {
   io = ioServer;
 
-  const numCreatures = 10;
+
+  // create creatures and pass them to the flocking process
+  const numCreatures = 100;
+  const pos = {
+    x: 0,
+    y: 0,
+  };
   for (let i = 0; i < numCreatures; i++) {
     const hash = xxh.h32(`${i}${new Date().getTime()}`, 0xCAFEBABE).toString(16);
-    const cre = new Creature(hash, { x: 0, y: 0 }, `Creature#${i}`, '#FFFFFF', 'fish', 40, 400, 1);
+
+    pos.x = Math.random() * 1500 - 300;
+    pos.y = Math.random() * 1500 - 300;
+
+    const cre = new Creature(hash, pos, `Creature#${i}`, '#FFFFFF', 'plane', 200, 200, 1);
 
     creatures[hash] = cre;
   }
+  flocking.send(new Message('creatureList', creatures));
 
+
+  // socket handling
   io.on('connection', (sock) => {
     const socket = sock;
 
     const hash = xxh.h32(`${socket.id}${new Date().getTime()}`, 0xCAFEBABE).toString(16);
     socket.hash = hash;
 
-    users[hash] = new Player(hash, { x: 0, y: 0 }, socket.id, '#FFFFFF', 'shark', 50, 500, 1);
-
-    socket.on('join', (data) => {
+    // join handler
+    socket.on('join', () => {
       socket.join('main');
+      
+      pos.x = Math.random() * 500 + 200;
+      pos.y = Math.random() * 500 + 200;
 
-      physics.send('message', { type: 'playerAdded', data: users[socket.hash] });
+      users[socket.hash] = 
+        new Player(socket.hash, pos, socket.id, '#F00', 'balloon', 500, 25000, 1);
+
+      // send other clients info on new player
+      socket.broadcast.to('main').emit('addPlayer',
+                         { hash: socket.hash, user: users[socket.hash] });
+
+      // send child process info on new player
+      physics.send(new Message('playerAdded', users[socket.hash]));
+      flocking.send(new Message('playerAdded', users[socket.hash]));
+
+      // send the new player back info ont the game
+      socket.emit('joinedCreatures', new Message('creatures', creatures));
+      socket.emit('joinedPlayers', new Message('users', users));
+
+      console.log(`Player: ${socket.hash} has joined the server`);
+    });
+
+
+    // leave handler
+    socket.on('leave', () => {
+      if (users[socket.hash]) {
+        physics.send(new Message('playerRemoved', socket.hash));
+        flocking.send(new Message('playerRemoved', socket.hash));
+
+        console.log(`Player: ${socket.hash} has left the room`);
+        delete users[socket.hash];
+        
+        // tell other players
+        socket.broadcast.to('main').emit('removePlayer',
+                         { hash: socket.hash });
+
+        socket.leave('main');
+      }
+    });
+
+
+    // move handler
+    socket.on('move', (data) => {
+      if (users[socket.hash]) {
+        users[socket.hash].movement = data;
+        physics.send(new Message('playerMoved',
+                    { hash: socket.hash, movement: users[socket.hash].movement }));
+      }
+    });
+
+
+    // disconnect handler
+    socket.on('disconnect', () => {
+      if (users[socket.hash]) {
+        physics.send(new Message('playerRemoved', socket.hash));
+        flocking.send(new Message('playerRemoved', socket.hash));
+
+        console.log(`Player: ${socket.hash} has left the server`);
+        delete users[socket.hash];
+        
+        // tell other players
+        socket.broadcast.to('main').emit('removePlayer',
+                         { hash: socket.hash });
+
+        socket.leave('main');
+      }
     });
   });
 };

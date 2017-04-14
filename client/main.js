@@ -1,83 +1,104 @@
 "use strict";
 
-const app = app || { };
-
-app.main = {
-    // canvas drawing elements
-  offCanvas: undefined,
-  offCtx: undefined,
-  canvas: undefined,
-  ctx: undefined,
-  
-    // game data
-  gamestate: 'ingame',
-  
-    // movement object for player
-  movement: {
-    down: false,
-    up: false,
-    right: false,
-    left: false,
-    space: false,
-  },
-  
-    // connection information
-  socket: undefined,
-  id: undefined,
-  users: undefined,
-  creatures: undefined,
-  
-  update: (data) => {
-    
-  },
-  
-  updatePosition: () => {
-    
-  },
-  
-
-  lerp3: (v0, v1, v2, alpha) => {
-    return (1 - alpha) * ((1 - alpha) * v0 + alpha * v1) + ((1 - alpha) * v1 + v2 * alpha) * alpha;
-  },
-
-  redraw: (time) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    let keys = Object.Keys(creatures);
-    
-    for (var i = 0; i < keys.length; i++) {
-      
-    }
-
-    requestAnimationFrame(redraw.bind(this));
-  },
-  
-  init: () => {
-    this.canvas = document.querySelector("#canvas");
-    this.ctx = canvas.getContext("2d");
-
-    this.socket = io.connect();
-    
-    this.socket.on('joined', (data) => app.connection.joined());
-    this.socket.on('joinedCreatures', (data) => app.connection.joinedCreatures());
-    this.socket.on('joinedPlayers', (data) => app.connection.joinedPlayers());
-    
-    this.socket.on('updateCreatures', (data) => app.connection.updateCreatures());
-    this.socket.on('updatePlayers', (data) => app.connection.updatePlayers());
-    
-    this.socket.on('addPlayer', (data) => app.connection.addPlayer());
-    this.socket.on('addCreatures', (data) => app.connection.addCreatures());
-    
-    this.socket.on('removePlayer', (data) => app.connection.removePlayer());
-    this.socket.on('removeCreatures', (data) => app.connection.removeCreatures());
-    
-    document.body.addEventListener('keydown', (e) => app.utils.keyDownHanlder());
-    document.body.addEventListener('keyup', (e) => app.utils.keyUpHandler());
-  },
-
+// game info
+let gamestate = 'loading';
+let loaded = {
+  airplane: false,
+  balloon: false,
+  font: false,
+  ready: false,
 };
 
-(window.onload = () => {
-  app.main.init();
-  app.utils.fixScreenSize();
-})();
+// server updated info
+let users = undefined;
+let creatures = undefined;
+let userAlpha = 0.1;
+let creatureAlpha = 0.1;
+
+// our player movement
+let movement = {
+  down: false,
+  up: false,
+  right: false,
+  left: false,
+  space: false,
+};
+
+// connection information
+let socket = undefined;
+let hash = undefined;
+
+
+
+function init () {
+  canvas = document.querySelector("#mainCanvas");
+  ctx = canvas.getContext("2d");
+
+  socket = io.connect();
+  
+  socket.on('joined', joined);
+  socket.on('joinedCreatures', joinedCreatures);
+  socket.on('joinedPlayers', joinedPlayers);
+  
+  socket.on('updateCreatures', updateCreatures);
+  socket.on('updatePlayers', updatePlayers);
+  
+  socket.on('addPlayer', addPlayer);
+  socket.on('addCreatures', addCreatures);
+  
+  socket.on('removePlayer', removePlayer);
+  socket.on('removeCreatures', removeCreatures);
+
+  document.body.addEventListener('keydown', keyDownHandler);
+  document.body.addEventListener('keyup', keyUpHandler);
+  
+  window.onmousedown = (e) => {
+    getMouse(e);
+    mouse.clicked = true;
+  }
+  window.onmouseup = (e) => {
+    getMouse(e);
+    mouse.clicked = false;
+  }
+  window.onmousemove = getMouse;
+  
+  window.onresize = () => fixScreenSize();
+
+  redrawBind = redraw.bind(this);
+  requestAnimationFrame(redrawBind);
+  
+  fixScreenSize();
+  
+  airplane = new Image(32, 32);
+  airplane.src = '/assets/airplane.png';
+  airplane.onload = () => {
+    loaded.airplane = true;
+    
+    if (loaded.font && loaded.balloon) {
+      loaded.ready = true;
+      gamestate = 'loadTransitionOUT';
+    }
+  };
+  
+  balloon = new Image(256, 256);
+  balloon.src = '/assets/balloon.png';
+  balloon.onload = () => {
+    loaded.balloon = true;
+    
+    if (loaded.font && loaded.airplane) {
+      loaded.ready = true;
+      gamestate = 'loadTransitionOUT';
+    }
+  };
+  
+  document.fonts.onloadingdone = () => {
+    loaded.font = true;
+    
+    if (loaded.airplane && loaded.balloon) {
+      loaded.ready = true;
+      gamestate = 'loadTransitionOUT';
+    }
+  }
+};
+
+window.onload = init;

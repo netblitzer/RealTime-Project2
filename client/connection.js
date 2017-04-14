@@ -1,71 +1,92 @@
-"use strict";
 
-const app = app || { };
+// handler to load level and the connected player
+  // does not load other players or creature information
+const joined = (m) => {
+  if (m === undefined || m.user === undefined) return;
 
-app.connection = {
+    // set the user
+  hash = m.hash;
+  users[hash] = m.user;
+};
   
-  // handler to load level and the connected player
-    // does not load other players or creature information
-  joined: (data) => {
-    if (data === undefined || data.user === undefined) return;
+// handler to load creatures in
+const joinedCreatures = (m) => {
+  if (m === undefined || m.data === undefined) return;
+
+  creatures = m.data;
+};
+  
+// handler to load other players in
+const joinedPlayers = (m) => {
+  if (m === undefined) return;
+  
+  users = m.data;
+};
+  
+  
+  
+const addPlayer = (m) => {
+  if (m === undefined) return;
+
+  if (!users[m.hash]) {
+    users[m.hash] = m.user;
+  }
+};
+  
+const addCreatures = (m) => {
+  if (m === undefined) return;
+
+
+};
+  
+  
+  
+const removePlayer = (m) => {
+  if (m === undefined) return;
+
+  if (users[m.hash]) {
+    delete users[m.hash];
+  }
+};
+  
+const removeCreatures = (m) => {
+  if (m === undefined) return;
+
+
+};
+  
+  
+  
+const updateCreatures = (m) => {
+  if (m === undefined) return;
+
+  const keys = Object.keys(m);
+  for(let i = 0; i < keys.length; i++) {
+    var cre = m[keys[i]];
     
-      // set the user
-    this.id = data.id;
-    this.users[this.id] = data.user;
-  },
-  
-  // handler to load creatures in
-  joinedCreatures: (data) => {
-    if (data === undefined || data.creatures === undefined) return;
-    
-    this.creatures = data.creatures;
-  },
-  
-  // handler to load other players in
-  joinedPlayers: (data) => {
-    
-  },
-  
-  
-  
-  addPlayer: (data) => {
-    if (data === undefined) return;
-    
-    if (!this.users[data.id]) {
-      this.users[data.id] = data.user;
+    if (cre.lastUpdate < creatures[keys[i]].position.lastUpdate) {
+      continue;
     }
-  },
-  
-  addCreatures: (data) => {
     
-  },
+    creatures[keys[i]].position = cre;
+  }
   
+  creatureAlpha = 0.1;
+};
   
-  
-  removePlayer: (data) => {
-    if (this.users[data.id]) {
-      delete this.users[data.id];
+const updatePlayers = (m) => {
+  if (m === undefined) return;
+
+  const keys = Object.keys(m);
+  for(let i = 0; i < keys.length; i++) {
+    var ply = m[keys[i]];
+    
+    if (ply.lastUpdate < users[keys[i]].position.lastUpdate) {
+      continue;
     }
-  },
-  
-  removeCreatures: (data) => {
     
-  },
+    users[keys[i]].position = ply;
+  }
   
-  
-  
-  updateCreatures: (data) => {
-    if (data === undefined || data.creatures === undefined) return;
-    
-    const keys = Object.keys(data.creatures);
-    for(let i = 0; i < keys.length; i++) {
-      var creature = data.creatures[keys[i]];
-      this.creatures[creature.ID].physics = creature.physics;
-    }
-  },
-  
-  updatePlayers: (data) => {
-    
-  },
-  
-}
+  userAlpha = 0.1;
+};
