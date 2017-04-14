@@ -5,7 +5,6 @@ let gamestate = 'loading';
 let loaded = {
   airplane: false,
   balloon: false,
-  font: false,
   ready: false,
 };
 
@@ -74,7 +73,7 @@ function init () {
   airplane.onload = () => {
     loaded.airplane = true;
     
-    if (loaded.font && loaded.balloon) {
+    if (loaded.balloon) {
       loaded.ready = true;
       gamestate = 'loadTransitionOUT';
     }
@@ -85,7 +84,7 @@ function init () {
   balloon.onload = () => {
     loaded.balloon = true;
     
-    if (loaded.font && loaded.airplane) {
+    if (loaded.airplane) {
       loaded.ready = true;
       gamestate = 'loadTransitionOUT';
     }
