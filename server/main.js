@@ -97,7 +97,7 @@ const setupMain = (ioServer) => {
 
 
   // create creatures and pass them to the flocking process
-  const numCreatures = 100;
+  const numCreatures = 40;
   const pos = {
     x: 0,
     y: 0,
